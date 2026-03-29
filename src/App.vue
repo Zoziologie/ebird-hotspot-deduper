@@ -653,8 +653,14 @@ watch(
               <span class="text-muted small">Selected region</span>
               <strong>{{ form.regionName }} ({{ form.regionCode }})</strong>
             </div>
-            <button type="button" class="btn btn-sm btn-outline-secondary" @click="clearSelectedRegion">
-              Change
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary icon-only-btn"
+              title="Edit selected region"
+              aria-label="Edit selected region"
+              @click="clearSelectedRegion"
+            >
+              <i class="bi bi-pencil-square" aria-hidden="true" />
             </button>
           </div>
 
@@ -779,7 +785,7 @@ watch(
         <div class="footer-line">
           <span>v{{ appVersion }}</span>
           <span class="dot">•</span>
-          <a href="https://github.com/rafnuss/ebird-hotspot-deduper" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/Zoziologie/ebird-hotspot-deduper" target="_blank" rel="noopener">GitHub</a>
           <span class="dot">•</span>
           <a class="sponsor-link" href="https://github.com/sponsors/Zoziologie" target="_blank" rel="noopener">
             <i class="bi bi-heart-fill me-1" aria-hidden="true" />
@@ -787,7 +793,7 @@ watch(
           </a>
           <span class="dot">•</span>
           <span>Powered by</span>
-          <a href="https://zoziologie.org/" target="_blank" rel="noopener">Zoziologie</a>
+          <a href="https://zoziologie.raphaelnussbaumer.com/" target="_blank" rel="noopener">Zoziologie</a>
           <span class="dot">•</span>
           <button type="button" class="footer-token-btn" @click="openTokenModal">
             <i class="bi bi-key-fill me-1" aria-hidden="true" />
@@ -845,7 +851,7 @@ watch(
 
 .panel-title {
   margin: 0;
-  font-size: 1.02rem;
+  font-size: 1.22rem;
   font-weight: 700;
   color: #0c3a66;
   letter-spacing: 0.01em;
@@ -885,6 +891,12 @@ watch(
 .selected-region-code {
   font-size: 0.75rem;
   color: #64748b;
+}
+
+.icon-only-btn {
+  width: 2rem;
+  min-width: 2rem;
+  padding: 0;
 }
 
 .threshold-row {

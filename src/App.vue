@@ -1,18 +1,20 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import AppFooter from './components/AppFooter.vue'
-import DuplicatePairsList from './components/DuplicatePairsList.vue'
 import MapPane from './components/MapPane.vue'
 import RegionPickerPanel from './components/RegionPickerPanel.vue'
+import ResultsPanel from './components/ResultsPanel.vue'
 import TokenModal from './components/TokenModal.vue'
 import { useEbirdApi } from './composables/useEbirdApi'
-import { useHotspotDeduper } from './composables/useHotspotDeduper'
-import { useLeafletMap } from './composables/useLeafletMap'
-import { useRegionPicker } from './composables/useRegionPicker'
+import { useHotspotFetcher } from './composables/useHotspotFetcher'
+import { useListFilters } from './composables/useListFilters'
+import { usePairEngine } from './composables/usePairEngine'
 
 const STORAGE_KEYS = {
   ebirdApiKey: 'deduper-ebird-api-key',
   thresholdMeters: 'deduper-threshold-meters',
+  nameSimilarityThreshold: 'deduper-name-similarity-threshold',
+  sortBy: 'deduper-sort-by',
   mapStyle: 'deduper-map-style',
 }
 
@@ -22,57 +24,37 @@ const showTokenModal = ref(!localStorage.getItem(STORAGE_KEYS.ebirdApiKey))
 const apiToken = ref(localStorage.getItem(STORAGE_KEYS.ebirdApiKey) || '')
 const tokenDraft = ref(apiToken.value)
 const tokenError = ref('')
+const selectedRegionCode = ref('')
 
 const { ebirdGet } = useEbirdApi({ apiToken })
 
-let hotspotDeduper = null
-const regionPicker = useRegionPicker({
-  apiToken,
+const hotspotFetcher = useHotspotFetcher({
   ebirdGet,
-  onRegionStateChange: () => {
-    if (hotspotDeduper) {
-      hotspotDeduper.resetHotspotResults()
-    }
-  },
-  clearErrorMessage: () => {
-    if (hotspotDeduper) {
-      hotspotDeduper.clearFetchError()
-    }
-  },
-  setErrorMessage: (message) => {
-    if (hotspotDeduper) {
-      hotspotDeduper.fetchError.value = message
-    }
-  },
+  apiToken,
+  selectedRegionCode,
 })
 
-hotspotDeduper = useHotspotDeduper({
-  ebirdGet,
-  apiToken,
-  selectedRegionCode: regionPicker.selectedRegionCode,
+const filters = useListFilters({
   thresholdStorageKey: STORAGE_KEYS.thresholdMeters,
+  nameThresholdStorageKey: STORAGE_KEYS.nameSimilarityThreshold,
+  sortByStorageKey: STORAGE_KEYS.sortBy,
 })
 
-const canFetch = computed(() => Boolean(apiToken.value.trim() && regionPicker.selectedRegionCode.value))
-const canClearSelection = computed(() => regionPicker.hasAnyRegionInput.value || Boolean(regionPicker.selectedRegionCode.value))
-const showLoadingOverlay = computed(() => hotspotDeduper.isLoading.value)
-
-const { mapContainer, initMap, destroyMap, fitMapToCurrentSelection } = useLeafletMap({
-  filteredPairs: hotspotDeduper.filteredPairs,
-  selectedPair: hotspotDeduper.selectedPair,
-  mapStyleStorageKey: STORAGE_KEYS.mapStyle,
+const pairEngine = usePairEngine({
+  hotspots: hotspotFetcher.hotspots,
+  thresholdMeters: filters.thresholdMetersValue,
+  nameSimilarityThreshold: filters.nameSimilarityThresholdValue,
+  sortBy: filters.sortBy,
 })
 
-onMounted(async () => {
-  initMap()
-  if (apiToken.value.trim()) {
-    await regionPicker.initializeRegionPicker()
-  }
-})
-
-onBeforeUnmount(() => {
-  destroyMap()
-})
+watch(
+  selectedRegionCode,
+  () => {
+    hotspotFetcher.reset()
+    hotspotFetcher.clearFetchError()
+    pairEngine.clearSelection()
+  },
+)
 
 function saveToken() {
   const trimmed = tokenDraft.value.trim()
@@ -94,64 +76,64 @@ function openTokenModal() {
 }
 
 function selectPair(id) {
-  hotspotDeduper.selectPair(id)
-  fitMapToCurrentSelection()
+  pairEngine.selectPair(id)
+}
+
+function updateSelectedRegionCode(code) {
+  selectedRegionCode.value = String(code || '')
+}
+
+async function fetchHotspotsAndSelectFirstPair() {
+  await hotspotFetcher.fetchHotspots()
+  await nextTick()
+
+  const firstVisiblePair = pairEngine.visiblePairs.value[0]
+  if (firstVisiblePair) {
+    pairEngine.selectPair(firstVisiblePair.id)
+  } else {
+    pairEngine.clearSelection()
+  }
 }
 </script>
 
 <template>
   <div class="app-shell">
     <main class="content-split">
-      <aside class="list-pane">
+      <aside class="control-pane">
         <RegionPickerPanel
-          :token-present="Boolean(apiToken.trim())"
-          :country-query="regionPicker.form.countryQuery"
-          :subnational1-query="regionPicker.form.subnational1Query"
-          :subnational2-query="regionPicker.form.subnational2Query"
-          :threshold-meters="hotspotDeduper.thresholdMeters"
-          :threshold-meters-value="hotspotDeduper.thresholdMetersValue"
-          :country-suggestions="regionPicker.countrySuggestions"
-          :subnational1-suggestions="regionPicker.subnational1Suggestions"
-          :subnational2-suggestions="regionPicker.subnational2Suggestions"
-          :countries-loading="regionPicker.countriesLoading"
-          :subnational1-loading="regionPicker.subnational1Loading"
-          :subnational2-loading="regionPicker.subnational2Loading"
-          :selected-country="regionPicker.selectedCountry"
-          :selected-subnational1="regionPicker.selectedSubnational1"
-          :can-fetch="canFetch"
-          :is-loading="hotspotDeduper.isLoading"
-          :has-selected-region="Boolean(regionPicker.selectedRegionCode)"
-          :selected-region-name="regionPicker.selectedRegionName"
-          :selected-region-code="regionPicker.selectedRegionCode"
-          :can-clear-selection="canClearSelection"
-          :region-lookup-busy="regionPicker.regionLookupBusy"
-          :fetch-error="hotspotDeduper.fetchError"
-          :has-hotspots="Boolean(hotspotDeduper.hotspots.length)"
-          @update:country-query="regionPicker.form.countryQuery = $event"
-          @update:subnational1-query="regionPicker.form.subnational1Query = $event"
-          @update:subnational2-query="regionPicker.form.subnational2Query = $event"
-          @update:threshold-meters="hotspotDeduper.setThresholdMeters($event)"
-          @country-query-input="regionPicker.countryQueryInput"
-          @subnational1-query-input="regionPicker.subnational1QueryInput"
-          @subnational2-query-input="regionPicker.subnational2QueryInput"
-          @country-query-blur="regionPicker.clearCountrySuggestions"
-          @subnational1-query-blur="regionPicker.clearSubnational1Suggestions"
-          @subnational2-query-blur="regionPicker.clearSubnational2Suggestions"
-          @select-country="regionPicker.selectCountry"
-          @select-subnational1="regionPicker.selectSubnational1"
-          @select-subnational2="regionPicker.selectSubnational2"
-          @fetch-hotspots="hotspotDeduper.fetchHotspots"
-          @clear-selection="regionPicker.clearSelectedRegion"
+          :api-token="apiToken"
+          :ebird-get="ebirdGet"
+          :is-loading="hotspotFetcher.isLoading.value"
+          :fetch-error="hotspotFetcher.fetchError.value"
+          @update:region-code="updateSelectedRegionCode"
+          @fetch-hotspots="fetchHotspotsAndSelectFirstPair"
         />
 
-        <DuplicatePairsList
-          :pairs="hotspotDeduper.filteredPairs"
-          :selected-pair-id="hotspotDeduper.selectedPairId"
-          @select-pair="selectPair"
+        <MapPane
+          :show-loading-overlay="hotspotFetcher.isLoading.value"
+          :hotspots="hotspotFetcher.hotspots.value"
+          :selected-pair="pairEngine.selectedPair.value"
+          :map-style-storage-key="STORAGE_KEYS.mapStyle"
         />
       </aside>
 
-      <MapPane :show-loading-overlay="showLoadingOverlay" :map-container-ref="mapContainer" />
+      <aside class="list-pane">
+        <ResultsPanel
+          :visible-pair-count="pairEngine.visiblePairs.value.length"
+          :total-pair-count="pairEngine.allPairs.value.length"
+          :has-fetch-attempted="hotspotFetcher.hasFetchAttempted.value"
+          :is-loading="hotspotFetcher.isLoading.value"
+          :threshold-meters="filters.thresholdMetersValue.value"
+          :name-similarity-percent="filters.nameSimilarityPercent.value"
+          :sort-by="filters.sortBy.value"
+          :pairs="pairEngine.visiblePairs.value"
+          :selected-pair-id="pairEngine.selectedPairId.value"
+          @update:threshold-meters="filters.setThresholdMeters($event)"
+          @update:name-similarity-threshold="filters.setNameSimilarityPercent($event)"
+          @update:sort-by="filters.setSortBy($event)"
+          @select-pair="selectPair"
+        />
+      </aside>
     </main>
 
     <AppFooter :app-version="appVersion" @open-token-modal="openTokenModal" />
@@ -168,6 +150,25 @@ function selectPair(id) {
 </template>
 
 <style scoped>
+:global(:root) {
+  --brand-primary: #169b89;
+  --brand-primary-rgb: 22, 155, 137;
+  --brand-primary-dark: #0f7669;
+  --brand-accent: #ff7a59;
+  --brand-accent-rgb: 255, 122, 89;
+  --brand-ink: #173042;
+  --brand-muted: #5f7382;
+  --brand-surface: #f6fbfb;
+  --brand-surface-soft: #eaf5f6;
+  --brand-border: #c5d8df;
+  --brand-card: #ffffff;
+
+  --bs-primary: var(--brand-primary);
+  --bs-primary-rgb: var(--brand-primary-rgb);
+  --bs-link-color: #0f7669;
+  --bs-link-hover-color: #0b5f54;
+}
+
 :global(html, body, #app) {
   height: 100%;
   overflow: hidden;
@@ -175,6 +176,28 @@ function selectPair(id) {
 
 :global(body) {
   margin: 0;
+  font-family: 'Avenir Next', 'Nunito Sans', 'Source Sans 3', 'Segoe UI', sans-serif;
+  color: var(--brand-ink);
+  text-rendering: geometricPrecision;
+}
+
+:global(.btn-primary) {
+  --bs-btn-bg: var(--brand-primary);
+  --bs-btn-border-color: var(--brand-primary);
+  --bs-btn-hover-bg: var(--brand-primary-dark);
+  --bs-btn-hover-border-color: var(--brand-primary-dark);
+  --bs-btn-active-bg: var(--brand-primary-dark);
+  --bs-btn-active-border-color: var(--brand-primary-dark);
+  --bs-btn-disabled-bg: rgba(var(--brand-primary-rgb), 0.5);
+  --bs-btn-disabled-border-color: rgba(var(--brand-primary-rgb), 0.5);
+  --bs-btn-focus-shadow-rgb: var(--brand-primary-rgb);
+}
+
+:global(.form-control:focus),
+:global(.form-select:focus),
+:global(.btn:focus-visible) {
+  border-color: rgba(var(--brand-primary-rgb), 0.55);
+  box-shadow: 0 0 0 0.24rem rgba(var(--brand-primary-rgb), 0.2);
 }
 
 .app-shell {
@@ -182,10 +205,12 @@ function selectPair(id) {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: radial-gradient(circle at 2% 5%, #d7ebff 0%, transparent 34%),
-    radial-gradient(circle at 100% 100%, #d6f5ec 0%, transparent 26%),
-    linear-gradient(180deg, #f6f9ff 0%, #eef4fb 100%);
-  color: #1e293b;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(22, 155, 137, 0.2) 0%, transparent 34%),
+    radial-gradient(circle at 90% 18%, rgba(var(--brand-accent-rgb), 0.2) 0%, transparent 28%),
+    radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.16) 0%, transparent 26%),
+    linear-gradient(180deg, #f6fbfd 0%, #eef6f9 100%);
+  color: var(--brand-ink);
 }
 
 .content-split {
@@ -196,23 +221,48 @@ function selectPair(id) {
   grid-template-columns: minmax(340px, 42%) 1fr;
 }
 
+.control-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--brand-border);
+  background: color-mix(in srgb, var(--brand-surface) 86%, white 14%);
+  backdrop-filter: blur(4px);
+}
+
+.control-pane :deep(.map-pane) {
+  flex: 1 1 auto;
+  min-height: 230px;
+  border-left: none;
+  background: color-mix(in srgb, var(--brand-surface-soft) 50%, #ffffff 50%);
+}
+
 .list-pane {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid #d2deeb;
-  background: #f5f9ff;
+  background: color-mix(in srgb, var(--brand-surface) 84%, white 16%);
+}
+
+.list-pane :deep(.list-pane-body) {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 @media (max-width: 920px) {
   .content-split {
     grid-template-columns: 1fr;
-    grid-template-rows: 48vh 52vh;
+    grid-template-rows: auto 1fr;
   }
 
-  .list-pane {
+  .control-pane {
     border-right: none;
-    border-bottom: 1px solid #dbe2ea;
+    border-bottom: 1px solid var(--brand-border);
+  }
+
+  .control-pane :deep(.map-pane) {
+    min-height: 180px;
+    flex: 1 1 auto;
   }
 }
 </style>

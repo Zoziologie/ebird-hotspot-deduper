@@ -300,9 +300,10 @@ function distanceIntensityClass(distanceMeters) {
 
 .list-pane-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.65rem;
+  flex-wrap: wrap;
+  gap: 0.7rem 0.8rem;
   padding: 0.82rem 0.84rem;
   border-bottom: 1px solid var(--brand-border);
   background:
@@ -312,15 +313,16 @@ function distanceIntensityClass(distanceMeters) {
       #ffffff 0%,
       color-mix(in srgb, var(--brand-surface) 62%, #ffffff 38%) 100%
     );
-  overflow-x: auto;
+  min-width: 0;
 }
 
 .head-top {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex: 0 0 auto;
-  white-space: nowrap;
+  flex: 1 1 14rem;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .head-title {
@@ -346,16 +348,19 @@ function distanceIntensityClass(distanceMeters) {
   align-items: center;
   gap: 0.6rem;
   margin-top: 0;
-  flex-wrap: nowrap;
+  flex: 1 1 28rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   min-width: 0;
 }
 
 .filter-item {
   min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.22rem;
+  flex: 1 1 9rem;
 }
 
 .filter-label {
@@ -375,10 +380,17 @@ function distanceIntensityClass(distanceMeters) {
 }
 
 .filter-input {
-  width: 4.2rem;
+  width: 100%;
+  min-width: 0;
   border-color: color-mix(in srgb, var(--brand-border) 78%, #ffffff 22%);
   font-weight: 600;
   color: var(--brand-ink);
+}
+
+.filter-item :deep(.input-group) {
+  width: 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .head-filters :deep(.form-control),
@@ -389,10 +401,12 @@ function distanceIntensityClass(distanceMeters) {
 
 .sort-item {
   min-width: 0;
+  flex-basis: 11rem;
 }
 
 .sort-select {
-  min-width: 8.5rem;
+  width: 100%;
+  min-width: 0;
   border-color: color-mix(in srgb, var(--brand-border) 78%, #ffffff 22%);
   color: var(--brand-ink);
 }
@@ -554,12 +568,27 @@ function distanceIntensityClass(distanceMeters) {
 
 @media (max-width: 680px) {
   .list-pane-head {
-    gap: 0.45rem;
+    gap: 0.55rem;
     padding: 0.7rem 0.68rem;
   }
 
   .head-title {
     font-size: 0.91rem;
+  }
+
+  .head-top,
+  .head-filters,
+  .filter-item,
+  .sort-item {
+    flex-basis: 100%;
+  }
+
+  .head-filters {
+    justify-content: stretch;
+  }
+
+  .filter-item {
+    width: 100%;
   }
 
   .filter-label {

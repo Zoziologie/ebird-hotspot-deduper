@@ -216,6 +216,7 @@ async function fetchHotspotsAndSelectFirstPair() {
 .content-split {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   position: relative;
   display: grid;
   grid-template-columns: minmax(340px, 42%) 1fr;
@@ -225,6 +226,7 @@ async function fetchHotspotsAndSelectFirstPair() {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   border-right: 1px solid var(--brand-border);
   background: color-mix(in srgb, var(--brand-surface) 86%, white 14%);
   backdrop-filter: blur(4px);
@@ -241,6 +243,7 @@ async function fetchHotspotsAndSelectFirstPair() {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   background: color-mix(in srgb, var(--brand-surface) 84%, white 16%);
 }
 

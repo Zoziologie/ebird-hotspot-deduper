@@ -694,13 +694,13 @@ function filterRegionList(items, query) {
     return []
   }
 
-  return items
-    .filter((item) => item.name.toLowerCase().includes(normalizedQuery) || item.code.toLowerCase().includes(normalizedQuery))
-    .slice(0, 12)
+  return items.filter(
+    (item) => item.name.toLowerCase().includes(normalizedQuery) || item.code.toLowerCase().includes(normalizedQuery),
+  )
 }
 
 function topRegionList(items) {
-  return (items || []).slice(0, 12)
+  return items || []
 }
 
 function readRegionCodeFromUrl() {
@@ -1034,8 +1034,7 @@ function normalizeErrorMessage(error) {
   border: 1px solid color-mix(in srgb, var(--brand-border) 84%, #ffffff 16%);
   border-radius: 0.84rem;
   box-shadow: 0 16px 34px rgba(14, 36, 54, 0.16);
-  max-height: 280px;
-  overflow: auto;
+  overflow: visible;
 }
 
 .input-spinner-wrap {
